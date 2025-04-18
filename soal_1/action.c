@@ -15,7 +15,6 @@
 #define COMBINED_FILE "Combined.txt"
 #define DECODED_FILE "Decoded.txt"
 
-// ========== Download File ==========
 size_t write_data(void *ptr, size_t size, size_t nmemb, FILE *stream) {
     return fwrite(ptr, size, nmemb, stream);
 }
@@ -103,12 +102,29 @@ void copy_file(const char *src_path, const char *dest_path) {
     fclose(dest);
 }
 
+void delete_all_files_in_folder(const char *folder_path) {
+    DIR *dir = opendir(folder_path);
+    if (!dir) return;
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        char filepath[512];
+        snprintf(filepath, sizeof(filepath), "%s/%s", folder_path, entry->d_name);
+        remove(filepath);
+    }
+    closedir(dir);
+}
+
 void filter_txt_files() {
     const char *folders[] = {
         "Clues/ClueA", "Clues/ClueB", "Clues/ClueC", "Clues/ClueD"
     };
 
     mkdir(FILTERED_FOLDER, 0755);
+    delete_all_files_in_folder(FILTERED_FOLDER);
 
     for (int i = 0; i < 4; i++) {
         DIR *dir = opendir(folders[i]);
@@ -127,7 +143,11 @@ void filter_txt_files() {
         closedir(dir);
     }
 
-    printf("Filtered done.\n");
+    for (int i = 0; i < 4; i++) {
+        delete_all_files_in_folder(folders[i]);
+    }
+
+    printf("Filtered done. Valid files copied to Filtered folder and all files deleted from Clue folders.\n");
 }
 
 int compare(const void *a, const void *b) {
@@ -166,7 +186,9 @@ void combine_filtered() {
                 int c = fgetc(f);
                 if (c != EOF) fputc(c, out);
                 fclose(f);
+                remove(path); // Delete the file after reading
             }
+            free(digit_files[i]);
         }
         if (i < a_count) {
             char path[512];
@@ -176,13 +198,15 @@ void combine_filtered() {
                 int c = fgetc(f);
                 if (c != EOF) fputc(c, out);
                 fclose(f);
+                remove(path); // Delete the file after reading
             }
+            free(alpha_files[i]);
         }
         i++;
     }
 
     fclose(out);
-    printf("Combined to %s\n", COMBINED_FILE);
+    printf("Combined to %s. Filtered files deleted.\n", COMBINED_FILE);
 }
 
 char rot13_char(char c) {
